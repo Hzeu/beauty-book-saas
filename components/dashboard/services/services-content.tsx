@@ -1,0 +1,280 @@
+'use client'
+
+import { useState } from 'react'
+import { Plus, Pencil, Trash2, MoreVertical, Clock, DollarSign, Power } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { createService, deleteService, toggleServiceActive } from '@/lib/actions/services'
+import { formatCurrency, formatDuration } from '@/lib/helpers'
+import type { Service, ServiceCategory } from '@/lib/types/database'
+import { toast } from 'sonner'
+
+interface ServicesContentProps {
+  services: Service[]
+  categories: ServiceCategory[]
+}
+
+const durations = [
+  { value: '15', label: '15 minutos' },
+  { value: '30', label: '30 minutos' },
+  { value: '45', label: '45 minutos' },
+  { value: '60', label: '1 hora' },
+  { value: '90', label: '1h 30min' },
+  { value: '120', label: '2 horas' },
+  { value: '150', label: '2h 30min' },
+  { value: '180', label: '3 horas' },
+]
+
+export function ServicesContent({ services, categories }: ServicesContentProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+
+  async function handleCreate(formData: FormData) {
+    setIsLoading(true)
+    const result = await createService(formData)
+    
+    if (result.error) {
+      toast.error(result.error)
+    } else {
+      toast.success('Serviço criado com sucesso!')
+      setIsOpen(false)
+    }
+    setIsLoading(false)
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm('Tem certeza que deseja excluir este serviço?')) return
+    
+    const result = await deleteService(id)
+    
+    if (result.error) {
+      toast.error(result.error)
+    } else {
+      toast.success('Serviço excluído!')
+    }
+  }
+
+  async function handleToggleActive(id: string, isActive: boolean) {
+    const result = await toggleServiceActive(id, isActive)
+    
+    if (result.error) {
+      toast.error(result.error)
+    } else {
+      toast.success(isActive ? 'Serviço ativado!' : 'Serviço desativado!')
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header Actions */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-muted-foreground">
+            {services.length} serviço{services.length !== 1 ? 's' : ''} cadastrado{services.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 size-4" />
+              Novo Serviço
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <form action={handleCreate}>
+              <DialogHeader>
+                <DialogTitle>Novo Serviço</DialogTitle>
+                <DialogDescription>
+                  Adicione um novo serviço ao seu catálogo
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome do serviço *</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    placeholder="Ex: Manicure Tradicional"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Descrição</Label>
+                  <Textarea
+                    id="description"
+                    name="description"
+                    placeholder="Descreva o serviço..."
+                    rows={3}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="price">Preço (R$) *</Label>
+                    <Input
+                      id="price"
+                      name="price"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="50.00"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="duration">Duração *</Label>
+                    <Select name="duration" required>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {durations.map((d) => (
+                          <SelectItem key={d.value} value={d.value}>
+                            {d.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                {categories.length > 0 && (
+                  <div className="space-y-2">
+                    <Label htmlFor="categoryId">Categoria</Label>
+                    <Select name="categoryId">
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sem categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? 'Salvando...' : 'Criar Serviço'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Services List */}
+      {services.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <div className="size-12 rounded-full bg-muted flex items-center justify-center mb-4">
+              <Plus className="size-6 text-muted-foreground" />
+            </div>
+            <h3 className="font-medium mb-2">Nenhum serviço cadastrado</h3>
+            <p className="text-sm text-muted-foreground text-center mb-4">
+              Comece adicionando os serviços que você oferece para seus clientes
+            </p>
+            <Button onClick={() => setIsOpen(true)}>
+              <Plus className="mr-2 size-4" />
+              Adicionar Serviço
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {services.map((service) => (
+            <Card key={service.id} className={!service.is_active ? 'opacity-60' : ''}>
+              <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+                <div className="flex-1">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    {service.name}
+                    {!service.is_active && (
+                      <Badge variant="secondary" className="text-xs">
+                        Inativo
+                      </Badge>
+                    )}
+                  </CardTitle>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="size-8">
+                      <MoreVertical className="size-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem>
+                      <Pencil className="mr-2 size-4" />
+                      Editar
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleToggleActive(service.id, !service.is_active)}
+                    >
+                      <Power className="mr-2 size-4" />
+                      {service.is_active ? 'Desativar' : 'Ativar'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleDelete(service.id)}
+                      className="text-destructive"
+                    >
+                      <Trash2 className="mr-2 size-4" />
+                      Excluir
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </CardHeader>
+              <CardContent>
+                {service.description && (
+                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                    {service.description}
+                  </p>
+                )}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4 text-sm">
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <Clock className="size-4" />
+                      {formatDuration(service.duration_minutes)}
+                    </span>
+                  </div>
+                  <span className="font-semibold text-primary">
+                    {formatCurrency(service.price)}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
