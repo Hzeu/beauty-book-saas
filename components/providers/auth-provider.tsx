@@ -69,10 +69,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, fetchProfile])
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut()
     setUser(null)
     setProfile(null)
     setSubscription(null)
+    if (error) console.error('[auth] signOut failed', error)
   }, [supabase])
 
   useEffect(() => {

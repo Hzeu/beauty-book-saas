@@ -7,18 +7,20 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 
 interface DashboardQuickActionsProps {
+  professionalId: string
   professionalSlug: string
   /** Origem pública (ex.: https://seudominio.com) vinda do servidor — evita mismatch de hidratação. */
   bookingBaseUrl: string
 }
 
 export function DashboardQuickActions({
+  professionalId,
   professionalSlug,
   bookingBaseUrl,
 }: DashboardQuickActionsProps) {
   const base = bookingBaseUrl.replace(/\/$/, '')
-  const bookingPath = professionalSlug ? `/${professionalSlug}` : ''
-  const bookingUrl = professionalSlug ? `${base}${bookingPath}` : ''
+  const bookingPath = professionalId ? `/book/${professionalId}` : professionalSlug ? `/${professionalSlug}` : ''
+  const bookingUrl = bookingPath ? `${base}${bookingPath}` : ''
 
   const copyLink = () => {
     if (!bookingUrl) {
@@ -34,7 +36,7 @@ export function DashboardQuickActions({
       title: 'Novo Agendamento',
       description: 'Agendar manualmente',
       icon: Calendar,
-      href: '/dashboard/agenda/novo',
+      href: '/dashboard/agenda',
       primary: true,
     },
     {
@@ -47,7 +49,7 @@ export function DashboardQuickActions({
       title: 'Novo Serviço',
       description: 'Adicionar serviço',
       icon: Scissors,
-      href: '/dashboard/servicos/novo',
+      href: '/dashboard/servicos',
     },
   ]
 

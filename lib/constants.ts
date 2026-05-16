@@ -15,6 +15,7 @@ export const RESERVED_PUBLIC_SLUGS = new Set([
   '_next',
   'favicon.ico',
   'login',
+  'book',
 ])
 
 // Subscription Plans

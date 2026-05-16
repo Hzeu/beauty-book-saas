@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { format, addDays, startOfWeek, isSameDay, isToday } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon } from 'lucide-react'
@@ -203,7 +204,7 @@ export function AgendaContent({
             <div className="text-center py-8 text-muted-foreground">
               <p>Você não configurou horário de atendimento para este dia.</p>
               <Button variant="link" asChild className="mt-2">
-                <a href="/dashboard/configuracoes">Configurar horários</a>
+                <Link href="/dashboard/horarios">Configurar horários</Link>
               </Button>
             </div>
           ) : timeSlots.length === 0 ? (

@@ -82,6 +82,7 @@ export default async function DashboardPage() {
           {/* Quick Actions */}
           <div>
             <DashboardQuickActions
+              professionalId={ownerId || ''}
               professionalSlug={profile?.slug || ''}
               bookingBaseUrl={bookingBaseUrl}
             />

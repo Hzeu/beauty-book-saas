@@ -12,7 +12,7 @@ export default async function DashboardLayout({
   const { data: { user } } = await supabase.auth.getUser()
   
   if (!user) {
-    redirect('/auth/login')
+    redirect('/login')
   }
 
   // Check if professional has completed onboarding
@@ -20,7 +20,20 @@ export default async function DashboardLayout({
     .from('profiles')
     .select('role, slug, category')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
+
+  if (!profile) {
+    await supabase.from('profiles').insert({
+      id: user.id,
+      email: user.email ?? '',
+      full_name:
+        typeof user.user_metadata?.full_name === 'string'
+          ? user.user_metadata.full_name
+          : null,
+      role: 'professional',
+    })
+    redirect('/onboarding')
+  }
 
   if (profile?.role === 'professional' && !profile.category) {
     redirect('/onboarding')

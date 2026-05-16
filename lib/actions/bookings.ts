@@ -12,6 +12,40 @@ export type AvailabilityResult = {
   slots: string[]
 }
 
+type PublicServiceRow = {
+  id: string
+  name: string
+  price: number | null
+  duration_minutes: number | null
+}
+
+function serviceLabel(service: PublicServiceRow): string {
+  const price =
+    typeof service.price === 'number'
+      ? ` - ${service.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
+      : ''
+  const duration =
+    typeof service.duration_minutes === 'number' ? ` (${service.duration_minutes} min)` : ''
+
+  return `${service.name}${duration}${price}`
+}
+
+async function getPublicServiceLabels(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  professionalId: string,
+  fallbackCatalog: unknown,
+): Promise<string[]> {
+  const { data } = await supabase.rpc('get_booking_services', { p_id: professionalId })
+
+  if (Array.isArray(data) && data.length > 0) {
+    return (data as PublicServiceRow[]).map(serviceLabel)
+  }
+
+  return Array.isArray(fallbackCatalog)
+    ? (fallbackCatalog as unknown[]).map((x) => String(x)).filter(Boolean)
+    : ['Consulta']
+}
+
 export async function loadPublicAvailability(
   slug: string,
   dayYmd: string,
@@ -30,10 +64,7 @@ export async function loadPublicAvailability(
     service_catalog: unknown
   }
 
-  const raw = prof.service_catalog
-  const services = Array.isArray(raw)
-    ? (raw as unknown[]).map((x) => String(x)).filter(Boolean)
-    : ['Consulta']
+  const services = await getPublicServiceLabels(supabase, prof.id, prof.service_catalog)
 
   const { data: wh } = await supabase.rpc('get_working_hours_for_professional', { p_id: prof.id })
   const { data: occ } = await supabase.rpc('get_booking_occupied_times', {
@@ -76,7 +107,12 @@ export async function createPublicBooking(
   if (pe || !profRows?.length) {
     return { error: 'Profissional não encontrado.' }
   }
-  const prof = profRows[0] as { id: string }
+  const prof = profRows[0] as { id: string; service_catalog?: unknown }
+  const services = await getPublicServiceLabels(supabase, prof.id, prof.service_catalog)
+
+  if (!services.includes(service)) {
+    return { error: 'Serviço inválido para este profissional.' }
+  }
 
   const { error } = await supabase.from('bookings').insert({
     professional_id: prof.id,
@@ -92,6 +128,30 @@ export async function createPublicBooking(
   }
 
   return { success: true }
+}
+
+export async function resolvePublicBookingSlug(
+  identifier: string,
+): Promise<{ error?: string; slug?: string }> {
+  const supabase = await createClient()
+  const normalized = identifier.trim().toLowerCase()
+
+  if (!normalized) return { error: 'Link inválido.' }
+
+  const { data, error } = await supabase.rpc('get_booking_profile_by_identifier', {
+    p_identifier: normalized,
+  })
+
+  if (!error && Array.isArray(data) && data.length > 0) {
+    const row = data[0] as { slug?: string | null }
+    if (row.slug) return { slug: row.slug }
+  }
+
+  if (!normalized.includes('/')) {
+    return { slug: normalized }
+  }
+
+  return { error: 'Profissional não encontrado.' }
 }
 
 export async function setBookingStatus(

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Plus, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -45,22 +46,32 @@ export function NewAppointmentDialog({
 }: NewAppointmentDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [selectedService, setSelectedService] = useState<string>('')
+  const router = useRouter()
 
   const service = services.find(s => s.id === selectedService)
 
   async function handleSubmit(formData: FormData) {
     setIsLoading(true)
-    formData.set('date', selectedDate)
-    
-    const result = await createAppointment(formData)
-    
-    if (result.error) {
-      toast.error(result.error)
-    } else {
-      toast.success('Agendamento criado com sucesso!')
-      onOpenChange(false)
+    try {
+      const result = await createAppointment(formData)
+
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success('Agendamento criado com sucesso!')
+        onOpenChange(false)
+        router.refresh()
+      }
+    } catch (error) {
+      console.error('[appointments] createAppointment client failure', error)
+      toast.error(
+        error instanceof Error
+          ? `Erro inesperado ao criar agendamento: ${error.message}`
+          : 'Erro inesperado ao criar agendamento.',
+      )
+    } finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }
 
   return (

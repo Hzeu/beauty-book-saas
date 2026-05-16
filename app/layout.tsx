@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { cookies, headers } from 'next/headers'
 import { Geist, Geist_Mono } from 'next/font/google'
-import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from 'sonner'
 import { ThemeProvider } from '@/components/providers/theme-provider'
 import { AuthProvider } from '@/components/providers/auth-provider'
@@ -136,7 +135,6 @@ export default async function RootLayout({
             />
           </AuthProvider>
         </ThemeProvider>
-        {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
   )

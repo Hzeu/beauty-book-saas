@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard,
   Calendar,
+  CalendarClock,
   ClipboardList,
   Users,
   Scissors,
@@ -43,6 +44,7 @@ const navigation = [
 ]
 
 const secondaryNavigation = [
+  { name: 'Horários', href: '/dashboard/horarios', icon: CalendarClock },
   { name: 'Configurações', href: '/dashboard/configuracoes', icon: Settings },
   { name: 'Ajuda', href: '/dashboard/ajuda', icon: HelpCircle },
 ]
@@ -207,7 +209,7 @@ export function DashboardSidebar() {
                   <Avatar className="size-8">
                     <AvatarImage src={profile?.avatar_url || undefined} />
                     <AvatarFallback className="text-xs">
-                      {getInitials(profile?.full_name)}
+                      {getInitials(profile?.full_name ?? null)}
                     </AvatarFallback>
                   </Avatar>
                   {!isCollapsed && (
@@ -241,7 +243,7 @@ export function DashboardSidebar() {
                 <DropdownMenuItem
                   onClick={async () => {
                     await signOut()
-                    router.push('/')
+                    router.replace('/login')
                     router.refresh()
                   }}
                   className="text-destructive"

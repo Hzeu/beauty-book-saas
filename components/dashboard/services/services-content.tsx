@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Plus, Pencil, Trash2, MoreVertical, Clock, DollarSign, Power } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -31,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { createService, deleteService, toggleServiceActive } from '@/lib/actions/services'
+import { createService, deleteService, toggleServiceActive, updateService } from '@/lib/actions/services'
 import { formatCurrency, formatDuration } from '@/lib/helpers'
 import type { Service, ServiceCategory } from '@/lib/types/database'
 import { toast } from 'sonner'
@@ -55,18 +56,31 @@ const durations = [
 export function ServicesContent({ services, categories }: ServicesContentProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [editingService, setEditingService] = useState<Service | null>(null)
+  const [isEditLoading, setIsEditLoading] = useState(false)
+  const router = useRouter()
 
   async function handleCreate(formData: FormData) {
     setIsLoading(true)
-    const result = await createService(formData)
-    
-    if (result.error) {
-      toast.error(result.error)
-    } else {
-      toast.success('Serviço criado com sucesso!')
-      setIsOpen(false)
+    try {
+      const result = await createService(formData)
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success('Serviço criado com sucesso!')
+        setIsOpen(false)
+        router.refresh()
+      }
+    } catch (error) {
+      console.error('[services] createService client failure', error)
+      toast.error(
+        error instanceof Error
+          ? `Erro inesperado ao criar serviço: ${error.message}`
+          : 'Erro inesperado ao criar serviço.',
+      )
+    } finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }
 
   async function handleDelete(id: string) {
@@ -78,6 +92,33 @@ export function ServicesContent({ services, categories }: ServicesContentProps) 
       toast.error(result.error)
     } else {
       toast.success('Serviço excluído!')
+      router.refresh()
+    }
+  }
+
+  async function handleUpdate(formData: FormData) {
+    if (!editingService) return
+
+    setIsEditLoading(true)
+    try {
+      const result = await updateService(editingService.id, formData)
+
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success('Serviço atualizado com sucesso!')
+        setEditingService(null)
+        router.refresh()
+      }
+    } catch (error) {
+      console.error('[services] updateService client failure', error)
+      toast.error(
+        error instanceof Error
+          ? `Erro inesperado ao atualizar serviço: ${error.message}`
+          : 'Erro inesperado ao atualizar serviço.',
+      )
+    } finally {
+      setIsEditLoading(false)
     }
   }
 
@@ -88,6 +129,7 @@ export function ServicesContent({ services, categories }: ServicesContentProps) 
       toast.error(result.error)
     } else {
       toast.success(isActive ? 'Serviço ativado!' : 'Serviço desativado!')
+      router.refresh()
     }
   }
 
@@ -233,7 +275,7 @@ export function ServicesContent({ services, categories }: ServicesContentProps) 
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setEditingService(service)}>
                       <Pencil className="mr-2 size-4" />
                       Editar
                     </DropdownMenuItem>
@@ -275,6 +317,94 @@ export function ServicesContent({ services, categories }: ServicesContentProps) 
           ))}
         </div>
       )}
+
+      <Dialog open={!!editingService} onOpenChange={(open) => !open && setEditingService(null)}>
+        <DialogContent>
+          {editingService && (
+            <form action={handleUpdate}>
+              <DialogHeader>
+                <DialogTitle>Editar serviço</DialogTitle>
+                <DialogDescription>Atualize os dados do serviço no seu catálogo</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">Nome do serviço *</Label>
+                  <Input
+                    id="edit-name"
+                    name="name"
+                    defaultValue={editingService.name}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-description">Descrição</Label>
+                  <Textarea
+                    id="edit-description"
+                    name="description"
+                    defaultValue={editingService.description ?? ''}
+                    rows={3}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-price">Preço (R$) *</Label>
+                    <Input
+                      id="edit-price"
+                      name="price"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      defaultValue={editingService.price}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-duration">Duração *</Label>
+                    <Select name="duration" defaultValue={String(editingService.duration_minutes)} required>
+                      <SelectTrigger id="edit-duration">
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {durations.map((d) => (
+                          <SelectItem key={d.value} value={d.value}>
+                            {d.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                {categories.length > 0 && (
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-categoryId">Categoria</Label>
+                    <Select name="categoryId" defaultValue={editingService.category_id ?? 'none'}>
+                      <SelectTrigger id="edit-categoryId">
+                        <SelectValue placeholder="Sem categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sem categoria</SelectItem>
+                        {categories.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setEditingService(null)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={isEditLoading}>
+                  {isEditLoading ? 'Salvando...' : 'Salvar alterações'}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
