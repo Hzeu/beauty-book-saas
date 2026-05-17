@@ -1,6 +1,26 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isSubscriptionAccessBlocked } from '@/lib/billing/subscription-gate'
+import type { UserRole } from '@/lib/types/database'
+
+type SessionProfile = {
+  role: UserRole
+  is_blocked?: boolean | null
+  category?: string | null
+}
+
+function redirectTo(request: NextRequest, pathname: string) {
+  const url = request.nextUrl.clone()
+  url.pathname = pathname
+  url.search = ''
+  return NextResponse.redirect(url)
+}
+
+function destinationForRole(role: UserRole | null | undefined) {
+  if (role === 'admin') return '/admin'
+  if (role === 'professional') return '/dashboard'
+  return '/'
+}
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -34,14 +54,10 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname
 
-  const protectedRoutes = [
-    '/dashboard',
-    '/admin',
-    '/settings',
-    '/onboarding',
-    '/auth/update-password',
-  ]
+  const protectedRoutes = ['/dashboard', '/admin', '/settings', '/onboarding', '/auth/update-password']
   const isProtectedRoute = protectedRoutes.some(route => path.startsWith(route))
+  const authRoutes = ['/auth/login', '/auth/register', '/auth/forgot-password']
+  const isAuthRoute = authRoutes.some(route => path.startsWith(route))
 
   if (isProtectedRoute && !user) {
     const url = request.nextUrl.clone()
@@ -50,42 +66,42 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  const authRoutes = ['/auth/login', '/auth/register', '/auth/forgot-password']
-  const isAuthRoute = authRoutes.some(route => path.startsWith(route))
-
-  if (isAuthRoute && user) {
-    const { data: profile } = await supabase
+  let profile: SessionProfile | null = null
+  if (user) {
+    const { data } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, is_blocked, category')
       .eq('id', user.id)
       .maybeSingle()
-    const url = request.nextUrl.clone()
-    url.pathname = profile?.role === 'admin' ? '/admin' : '/dashboard'
-    return NextResponse.redirect(url)
+    profile = data as SessionProfile | null
   }
 
-  if (path.startsWith('/admin') && user) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .maybeSingle()
-
-    if (profile?.role !== 'admin') {
-      const url = request.nextUrl.clone()
-      url.pathname = '/dashboard'
-      return NextResponse.redirect(url)
+  if (user && !profile) {
+    if (isProtectedRoute) {
+      return redirectTo(request, '/auth/login')
     }
+    return supabaseResponse
   }
 
-  if (user && path.startsWith('/dashboard')) {
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+  if (user && profile?.is_blocked === true && !path.startsWith('/blocked')) {
+    return redirectTo(request, '/blocked')
+  }
 
-    const blocked = profile && 'is_blocked' in profile && (profile as { is_blocked?: boolean }).is_blocked === true
-    if (blocked) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/conta-bloqueada'
-      return NextResponse.redirect(url)
+  if (isAuthRoute && user && profile) {
+    return redirectTo(request, destinationForRole(profile?.role))
+  }
+
+  if (path.startsWith('/admin') && user && profile?.role !== 'admin') {
+    return redirectTo(request, '/dashboard')
+  }
+
+  if (path.startsWith('/dashboard') && user) {
+    if (profile?.role === 'admin') {
+      return redirectTo(request, '/admin')
+    }
+
+    if (profile?.role !== 'professional') {
+      return redirectTo(request, '/')
     }
 
     if (profile?.role === 'professional' && !path.startsWith('/dashboard/assinatura')) {
@@ -96,11 +112,13 @@ export async function updateSession(request: NextRequest) {
         .maybeSingle()
 
       if (subscription && isSubscriptionAccessBlocked(subscription)) {
-        const url = request.nextUrl.clone()
-        url.pathname = '/dashboard/assinatura'
-        return NextResponse.redirect(url)
+        return redirectTo(request, '/dashboard/assinatura')
       }
     }
+  }
+
+  if (path.startsWith('/onboarding') && user && profile?.role !== 'professional') {
+    return redirectTo(request, destinationForRole(profile?.role))
   }
 
   return supabaseResponse

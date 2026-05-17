@@ -52,7 +52,7 @@ export async function loadPublicAvailability(
 ): Promise<{ error?: string; data?: AvailabilityResult }> {
   const supabase = await createClient()
 
-  const { data: profRows, error: pe } = await supabase.rpc('get_booking_profile', { p_slug: slug })
+  const { data: profRows, error: pe } = await supabase.rpc('get_booking_profile', { p_slug: slug.trim() })
   if (pe || !profRows?.length) {
     return { error: 'Perfil não encontrado.' }
   }
@@ -130,28 +130,60 @@ export async function createPublicBooking(
   return { success: true }
 }
 
-export async function resolvePublicBookingSlug(
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export type ResolvedPublicBookingProfile = {
+  slug: string
+  professionalId: string
+}
+
+export async function resolvePublicBookingProfile(
   identifier: string,
-): Promise<{ error?: string; slug?: string }> {
+): Promise<{ error?: string; profile?: ResolvedPublicBookingProfile }> {
   const supabase = await createClient()
-  const normalized = identifier.trim().toLowerCase()
+  const normalized = identifier.trim()
 
   if (!normalized) return { error: 'Link inválido.' }
 
   const { data, error } = await supabase.rpc('get_booking_profile_by_identifier', {
-    p_identifier: normalized,
+    p_identifier: normalized.toLowerCase(),
   })
 
   if (!error && Array.isArray(data) && data.length > 0) {
-    const row = data[0] as { slug?: string | null }
-    if (row.slug) return { slug: row.slug }
+    const row = data[0] as { id?: string; slug?: string | null }
+    if (row.slug && row.id) {
+      return { profile: { slug: row.slug, professionalId: row.id } }
+    }
   }
 
   if (!normalized.includes('/')) {
-    return { slug: normalized }
+    const slugCandidate = normalized.toLowerCase()
+    const loaded = await loadPublicAvailability(slugCandidate, new Date().toISOString().slice(0, 10))
+    if (loaded.data?.profile.slug) {
+      return {
+        profile: {
+          slug: loaded.data.profile.slug,
+          professionalId: loaded.data.profile.id,
+        },
+      }
+    }
+  }
+
+  if (UUID_RE.test(normalized)) {
+    return { error: 'Profissional não encontrado. Verifique o link de agendamento.' }
   }
 
   return { error: 'Profissional não encontrado.' }
+}
+
+/** @deprecated Use resolvePublicBookingProfile */
+export async function resolvePublicBookingSlug(
+  identifier: string,
+): Promise<{ error?: string; slug?: string }> {
+  const resolved = await resolvePublicBookingProfile(identifier)
+  if (resolved.profile) return { slug: resolved.profile.slug }
+  return { error: resolved.error }
 }
 
 export async function setBookingStatus(

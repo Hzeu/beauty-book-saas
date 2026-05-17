@@ -1,28 +1,22 @@
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { DashboardHeader } from '@/components/dashboard/header'
 import { ServicesContent } from '@/components/dashboard/services/services-content'
+import { listMyServices } from '@/lib/actions/services'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ServicosPage() {
   const supabase = await createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  const ownerId = user?.id ?? ''
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  const { data: services } = await supabase
-    .from('services')
-    .select('*')
-    .eq('professional_id', ownerId)
-    .order('display_order', { ascending: true })
-    .order('created_at', { ascending: true })
+  if (!user) {
+    redirect('/auth/login')
+  }
 
-  const { data: categories } = await supabase
-    .from('service_categories')
-    .select('*')
-    .eq('professional_id', ownerId)
-    .order('display_order', { ascending: true })
+  const { services, categories } = await listMyServices()
 
   return (
     <>

@@ -31,7 +31,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { createService, deleteService, toggleServiceActive, updateService } from '@/lib/actions/services'
+import {
+  createService,
+  deleteService,
+  listMyServices,
+  toggleServiceActive,
+  updateService,
+} from '@/lib/actions/services'
 import { formatCurrency, formatDuration } from '@/lib/helpers'
 import type { Service, ServiceCategory } from '@/lib/types/database'
 import { toast } from 'sonner'
@@ -54,30 +60,59 @@ const durations = [
 
 export function ServicesContent({ services, categories }: ServicesContentProps) {
   const [serviceList, setServiceList] = useState<Service[]>(services)
+  const [categoryList, setCategoryList] = useState<ServiceCategory[]>(categories)
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [editingService, setEditingService] = useState<Service | null>(null)
   const [isEditLoading, setIsEditLoading] = useState(false)
+  const [createDuration, setCreateDuration] = useState('60')
+  const [createCategoryId, setCreateCategoryId] = useState('none')
+  const [editDuration, setEditDuration] = useState('60')
+  const [editCategoryId, setEditCategoryId] = useState('none')
   const router = useRouter()
 
   useEffect(() => {
     setServiceList(services)
   }, [services])
 
-  async function handleCreate(formData: FormData) {
+  useEffect(() => {
+    setCategoryList(categories)
+  }, [categories])
+
+  useEffect(() => {
+    if (!editingService) return
+    setEditDuration(String(editingService.duration_minutes))
+    setEditCategoryId(editingService.category_id ?? 'none')
+  }, [editingService])
+
+  async function refreshServices() {
+    const result = await listMyServices()
+    if (result.error) {
+      toast.error(result.error)
+      return
+    }
+    setServiceList(result.services)
+    setCategoryList(result.categories)
+    router.refresh()
+  }
+
+  async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    formData.set('duration', createDuration)
+    formData.set('categoryId', createCategoryId)
+
     setIsLoading(true)
     try {
       const result = await createService(formData)
       if (result.error) {
         toast.error(result.error)
       } else {
-        const createdService = result.data as Service | undefined
-        if (createdService) {
-          setServiceList((current) => [createdService, ...current])
-        }
         toast.success('Serviço criado com sucesso!')
         setIsOpen(false)
-        router.refresh()
+        setCreateDuration('60')
+        setCreateCategoryId('none')
+        await refreshServices()
       }
     } catch (error) {
       console.error('[services] createService client failure', error)
@@ -99,14 +134,18 @@ export function ServicesContent({ services, categories }: ServicesContentProps) 
     if (result.error) {
       toast.error(result.error)
     } else {
-      setServiceList((current) => current.filter((service) => service.id !== id))
       toast.success('Serviço excluído!')
-      router.refresh()
+      await refreshServices()
     }
   }
 
-  async function handleUpdate(formData: FormData) {
+  async function handleUpdate(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
     if (!editingService) return
+
+    const formData = new FormData(event.currentTarget)
+    formData.set('duration', editDuration)
+    formData.set('categoryId', editCategoryId)
 
     setIsEditLoading(true)
     try {
@@ -115,17 +154,9 @@ export function ServicesContent({ services, categories }: ServicesContentProps) 
       if (result.error) {
         toast.error(result.error)
       } else {
-        const updatedService = result.data as Service | undefined
-        if (updatedService) {
-          setServiceList((current) =>
-            current.map((service) =>
-              service.id === updatedService.id ? updatedService : service,
-            ),
-          )
-        }
         toast.success('Serviço atualizado com sucesso!')
         setEditingService(null)
-        router.refresh()
+        await refreshServices()
       }
     } catch (error) {
       console.error('[services] updateService client failure', error)
@@ -145,14 +176,8 @@ export function ServicesContent({ services, categories }: ServicesContentProps) 
     if (result.error) {
       toast.error(result.error)
     } else {
-      const updatedService = result.data as Service | undefined
-      setServiceList((current) =>
-        current.map((service) =>
-          service.id === id ? updatedService ?? { ...service, is_active: isActive } : service,
-        ),
-      )
       toast.success(isActive ? 'Serviço ativado!' : 'Serviço desativado!')
-      router.refresh()
+      await refreshServices()
     }
   }
 
@@ -173,7 +198,7 @@ export function ServicesContent({ services, categories }: ServicesContentProps) 
             </Button>
           </DialogTrigger>
           <DialogContent>
-            <form action={handleCreate}>
+            <form onSubmit={handleCreate}>
               <DialogHeader>
                 <DialogTitle>Novo Serviço</DialogTitle>
                 <DialogDescription>
@@ -214,7 +239,8 @@ export function ServicesContent({ services, categories }: ServicesContentProps) 
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="duration">Duração *</Label>
-                    <Select name="duration" required>
+                    <input type="hidden" name="duration" value={createDuration} />
+                    <Select value={createDuration} onValueChange={setCreateDuration} required>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
@@ -228,15 +254,17 @@ export function ServicesContent({ services, categories }: ServicesContentProps) 
                     </Select>
                   </div>
                 </div>
-                {categories.length > 0 && (
+                {categoryList.length > 0 && (
                   <div className="space-y-2">
                     <Label htmlFor="categoryId">Categoria</Label>
-                    <Select name="categoryId">
+                    <input type="hidden" name="categoryId" value={createCategoryId} />
+                    <Select value={createCategoryId} onValueChange={setCreateCategoryId}>
                       <SelectTrigger>
                         <SelectValue placeholder="Sem categoria" />
                       </SelectTrigger>
                       <SelectContent>
-                        {categories.map((c) => (
+                        <SelectItem value="none">Sem categoria</SelectItem>
+                        {categoryList.map((c) => (
                           <SelectItem key={c.id} value={c.id}>
                             {c.name}
                           </SelectItem>
@@ -344,7 +372,7 @@ export function ServicesContent({ services, categories }: ServicesContentProps) 
       <Dialog open={!!editingService} onOpenChange={(open) => !open && setEditingService(null)}>
         <DialogContent>
           {editingService && (
-            <form action={handleUpdate}>
+            <form onSubmit={handleUpdate}>
               <DialogHeader>
                 <DialogTitle>Editar serviço</DialogTitle>
                 <DialogDescription>Atualize os dados do serviço no seu catálogo</DialogDescription>
@@ -383,7 +411,8 @@ export function ServicesContent({ services, categories }: ServicesContentProps) 
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="edit-duration">Duração *</Label>
-                    <Select name="duration" defaultValue={String(editingService.duration_minutes)} required>
+                    <input type="hidden" name="duration" value={editDuration} />
+                    <Select value={editDuration} onValueChange={setEditDuration} required>
                       <SelectTrigger id="edit-duration">
                         <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
@@ -397,16 +426,17 @@ export function ServicesContent({ services, categories }: ServicesContentProps) 
                     </Select>
                   </div>
                 </div>
-                {categories.length > 0 && (
+                {categoryList.length > 0 && (
                   <div className="space-y-2">
                     <Label htmlFor="edit-categoryId">Categoria</Label>
-                    <Select name="categoryId" defaultValue={editingService.category_id ?? 'none'}>
+                    <input type="hidden" name="categoryId" value={editCategoryId} />
+                    <Select value={editCategoryId} onValueChange={setEditCategoryId}>
                       <SelectTrigger id="edit-categoryId">
                         <SelectValue placeholder="Sem categoria" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">Sem categoria</SelectItem>
-                        {categories.map((c) => (
+                        {categoryList.map((c) => (
                           <SelectItem key={c.id} value={c.id}>
                             {c.name}
                           </SelectItem>

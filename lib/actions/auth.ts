@@ -12,6 +12,20 @@ export type AuthActionResult = {
   redirect?: string
 }
 
+function destinationForRole(role: UserRole | null | undefined) {
+  if (role === 'admin') return '/admin'
+  if (role === 'professional') return '/dashboard'
+  return '/'
+}
+
+function isRedirectAllowedForRole(path: string, role: UserRole | null | undefined) {
+  if (!path) return false
+  if (path.startsWith('/admin')) return role === 'admin'
+  if (path.startsWith('/dashboard')) return role === 'professional'
+  if (path.startsWith('/onboarding')) return role === 'professional'
+  return true
+}
+
 export async function signUp(
   _prev: AuthActionResult | undefined,
   formData: FormData,
@@ -69,7 +83,7 @@ export async function signIn(
   const password = formData.get('password') as string
   const redirectTo = safeInternalPath(
     (formData.get('redirect') as string | null)?.trim() || null,
-    '/dashboard',
+    '',
   )
 
   if (!email || !password) {
@@ -95,22 +109,36 @@ export async function signIn(
   if (user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role, category')
+      .select('role, category, is_blocked')
       .eq('id', user.id)
       .maybeSingle()
+
+    if (!profile) {
+      redirect('/auth/login')
+    }
+
+    if (profile.is_blocked === true) {
+      redirect('/blocked')
+    }
+
+    if (isRedirectAllowedForRole(redirectTo, profile.role)) {
+      redirect(redirectTo)
+    }
 
     if (profile?.role === 'professional' && !profile.category) {
       redirect('/onboarding')
     }
+
+    redirect(destinationForRole(profile?.role))
   }
 
-  redirect(redirectTo)
+  redirect('/auth/login')
 }
 
 export async function signOut() {
   const supabase = await createClient()
-  await supabase.auth.signOut()
-  redirect('/login')
+  await supabase.auth.signOut({ scope: 'global' })
+  redirect('/auth/login')
 }
 
 export async function resetPassword(formData: FormData): Promise<AuthActionResult> {

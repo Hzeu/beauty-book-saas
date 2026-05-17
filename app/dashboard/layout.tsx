@@ -12,27 +12,29 @@ export default async function DashboardLayout({
   const { data: { user } } = await supabase.auth.getUser()
   
   if (!user) {
-    redirect('/login')
+    redirect('/auth/login')
   }
 
-  // Check if professional has completed onboarding
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, slug, category')
+    .select('role, slug, category, is_blocked')
     .eq('id', user.id)
     .maybeSingle()
 
   if (!profile) {
-    await supabase.from('profiles').insert({
-      id: user.id,
-      email: user.email ?? '',
-      full_name:
-        typeof user.user_metadata?.full_name === 'string'
-          ? user.user_metadata.full_name
-          : null,
-      role: 'professional',
-    })
-    redirect('/onboarding')
+    redirect('/auth/login')
+  }
+
+  if (profile.is_blocked === true) {
+    redirect('/blocked')
+  }
+
+  if (profile.role === 'admin') {
+    redirect('/admin')
+  }
+
+  if (profile.role !== 'professional') {
+    redirect('/')
   }
 
   if (profile?.role === 'professional' && !profile.category) {

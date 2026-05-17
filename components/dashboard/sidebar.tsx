@@ -17,7 +17,6 @@ import {
   ExternalLink,
   HelpCircle,
   LogOut,
-  Shield,
 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -231,19 +230,11 @@ export function DashboardSidebar() {
                     Configurações
                   </Link>
                 </DropdownMenuItem>
-                {profile?.role === 'admin' && (
-                  <DropdownMenuItem asChild>
-                    <Link href="/admin">
-                      <Shield className="mr-2 size-4" />
-                      Admin master
-                    </Link>
-                  </DropdownMenuItem>
-                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={async () => {
                     await signOut()
-                    router.replace('/login')
+                    router.replace('/auth/login')
                     router.refresh()
                   }}
                   className="text-destructive"

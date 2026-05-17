@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import type { Service, ServiceCategory } from '@/lib/types/database'
 
 const SERVICE_SELECT = '*'
 
@@ -58,6 +59,57 @@ function logSupabaseError(context: string, error: SupabaseActionError, payload?:
     },
     payload,
   })
+}
+
+export async function listMyServices(): Promise<{
+  services: Service[]
+  categories: ServiceCategory[]
+  error?: string
+}> {
+  try {
+    const supabase = await createClient()
+    const professionalId = await getAuthenticatedProfessionalId(supabase)
+
+    if (!professionalId) {
+      return { services: [], categories: [], error: 'Usuário autenticado não encontrado.' }
+    }
+
+    const [{ data: services, error: servicesError }, { data: categories, error: categoriesError }] =
+      await Promise.all([
+        supabase
+          .from('services')
+          .select(SERVICE_SELECT)
+          .eq('professional_id', professionalId)
+          .order('display_order', { ascending: true })
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('service_categories')
+          .select('*')
+          .eq('professional_id', professionalId)
+          .order('display_order', { ascending: true }),
+      ])
+
+    if (servicesError) {
+      logSupabaseError('listMyServices services query failed', servicesError, { professionalId })
+      return { services: [], categories: [], error: formatSupabaseError(servicesError) }
+    }
+
+    if (categoriesError) {
+      logSupabaseError('listMyServices categories query failed', categoriesError, { professionalId })
+    }
+
+    return {
+      services: (services ?? []) as Service[],
+      categories: (categories ?? []) as ServiceCategory[],
+    }
+  } catch (error) {
+    console.error('[services] listMyServices unexpected failure', error)
+    return {
+      services: [],
+      categories: [],
+      error: error instanceof Error ? error.message : 'Erro ao carregar serviços.',
+    }
+  }
 }
 
 async function getAuthenticatedProfessionalId(supabase: SupabaseClient): Promise<string | null> {
@@ -124,6 +176,7 @@ export async function createService(formData: FormData): Promise<ServiceActionRe
 
     const payload = {
       professional_id: professionalId,
+      is_active: true,
       ...parsed.data,
     }
 
