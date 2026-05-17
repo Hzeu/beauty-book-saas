@@ -3,6 +3,8 @@ import { RESERVED_PUBLIC_SLUGS } from '@/lib/constants'
 import { loadPublicAvailability } from '@/lib/actions/bookings'
 import { PublicBookingForm } from '@/components/public/public-booking-form'
 
+export const dynamic = 'force-dynamic'
+
 function todayYmd() {
   return new Date().toISOString().slice(0, 10)
 }

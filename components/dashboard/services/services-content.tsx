@@ -1,12 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Pencil, Trash2, MoreVertical, Clock, DollarSign, Power } from 'lucide-react'
+import { Plus, Pencil, Trash2, MoreVertical, Clock, Power } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
 import {
   Dialog,
   DialogContent,
@@ -54,11 +53,16 @@ const durations = [
 ]
 
 export function ServicesContent({ services, categories }: ServicesContentProps) {
+  const [serviceList, setServiceList] = useState<Service[]>(services)
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [editingService, setEditingService] = useState<Service | null>(null)
   const [isEditLoading, setIsEditLoading] = useState(false)
   const router = useRouter()
+
+  useEffect(() => {
+    setServiceList(services)
+  }, [services])
 
   async function handleCreate(formData: FormData) {
     setIsLoading(true)
@@ -67,6 +71,10 @@ export function ServicesContent({ services, categories }: ServicesContentProps) 
       if (result.error) {
         toast.error(result.error)
       } else {
+        const createdService = result.data as Service | undefined
+        if (createdService) {
+          setServiceList((current) => [createdService, ...current])
+        }
         toast.success('Serviço criado com sucesso!')
         setIsOpen(false)
         router.refresh()
@@ -91,6 +99,7 @@ export function ServicesContent({ services, categories }: ServicesContentProps) 
     if (result.error) {
       toast.error(result.error)
     } else {
+      setServiceList((current) => current.filter((service) => service.id !== id))
       toast.success('Serviço excluído!')
       router.refresh()
     }
@@ -106,6 +115,14 @@ export function ServicesContent({ services, categories }: ServicesContentProps) 
       if (result.error) {
         toast.error(result.error)
       } else {
+        const updatedService = result.data as Service | undefined
+        if (updatedService) {
+          setServiceList((current) =>
+            current.map((service) =>
+              service.id === updatedService.id ? updatedService : service,
+            ),
+          )
+        }
         toast.success('Serviço atualizado com sucesso!')
         setEditingService(null)
         router.refresh()
@@ -128,6 +145,12 @@ export function ServicesContent({ services, categories }: ServicesContentProps) 
     if (result.error) {
       toast.error(result.error)
     } else {
+      const updatedService = result.data as Service | undefined
+      setServiceList((current) =>
+        current.map((service) =>
+          service.id === id ? updatedService ?? { ...service, is_active: isActive } : service,
+        ),
+      )
       toast.success(isActive ? 'Serviço ativado!' : 'Serviço desativado!')
       router.refresh()
     }
@@ -139,7 +162,7 @@ export function ServicesContent({ services, categories }: ServicesContentProps) 
       <div className="flex items-center justify-between">
         <div>
           <p className="text-muted-foreground">
-            {services.length} serviço{services.length !== 1 ? 's' : ''} cadastrado{services.length !== 1 ? 's' : ''}
+            {serviceList.length} serviço{serviceList.length !== 1 ? 's' : ''} cadastrado{serviceList.length !== 1 ? 's' : ''}
           </p>
         </div>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -237,7 +260,7 @@ export function ServicesContent({ services, categories }: ServicesContentProps) 
       </div>
 
       {/* Services List */}
-      {services.length === 0 ? (
+      {serviceList.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <div className="size-12 rounded-full bg-muted flex items-center justify-center mb-4">
@@ -255,7 +278,7 @@ export function ServicesContent({ services, categories }: ServicesContentProps) 
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {services.map((service) => (
+          {serviceList.map((service) => (
             <Card key={service.id} className={!service.is_active ? 'opacity-60' : ''}>
               <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                 <div className="flex-1">

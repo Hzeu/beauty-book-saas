@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { DashboardHeader } from '@/components/dashboard/header'
 import { ServicesContent } from '@/components/dashboard/services/services-content'
 
+export const dynamic = 'force-dynamic'
+
 export default async function ServicosPage() {
   const supabase = await createClient()
   

@@ -1,14 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import { updatePassword } from '@/lib/actions/auth'
+import { toast } from 'sonner'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { Sparkles, Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { updatePassword } from '@/lib/actions/auth'
-import { toast } from 'sonner'
+import { useRouter } from 'next/navigation'
 
 export default function UpdatePasswordPage() {
   const router = useRouter()

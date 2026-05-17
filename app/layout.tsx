@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/components/providers/theme-provider'
 import { AuthProvider } from '@/components/providers/auth-provider'
 import { cn } from '@/lib/utils'
 import { parseThemePreference, resolveForServer } from '@/lib/theme/preference'
+import Providers from './providers'
 import './globals.css'
 
 const geist = Geist({ 
@@ -113,28 +114,30 @@ export default async function RootLayout({
       style={{ colorScheme: resolved }}
     >
       <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}>
-        <ThemeProvider
-          attribute="class"
-          cookieTheme={themeCookie}
-          defaultTheme="light"
-          enableSystem
-          disableTransitionOnChange
-          serverPrefersDark={secCh === 'dark'}
-        >
-          <AuthProvider>
-            {children}
-            <Toaster 
-              position="top-right"
-              toastOptions={{
-                style: {
-                  background: 'var(--card)',
-                  color: 'var(--card-foreground)',
-                  border: '1px solid var(--border)',
-                },
-              }}
-            />
-          </AuthProvider>
-        </ThemeProvider>
+        <Providers>
+          <ThemeProvider
+            attribute="class"
+            cookieTheme={themeCookie}
+            defaultTheme="light"
+            enableSystem
+            disableTransitionOnChange
+            serverPrefersDark={secCh === 'dark'}
+          >
+            <AuthProvider>
+              {children}
+              <Toaster 
+                position="top-right"
+                toastOptions={{
+                  style: {
+                    background: 'var(--card)',
+                    color: 'var(--card-foreground)',
+                    border: '1px solid var(--border)',
+                  },
+                }}
+              />
+            </AuthProvider>
+          </ThemeProvider>
+        </Providers>
       </body>
     </html>
   )

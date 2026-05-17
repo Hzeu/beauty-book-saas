@@ -24,18 +24,37 @@ import { cn } from '@/lib/utils'
 type Props = {
   slug: string
   initialDay: string
-  initial: AvailabilityResult
+  initial: AvailabilityResult | null | undefined
+}
+
+function normalizeAvailability(value: AvailabilityResult | null | undefined): AvailabilityResult {
+  return {
+    profile: {
+      id: value?.profile?.id ?? '',
+      full_name: value?.profile?.full_name || 'Profissional',
+      slug: value?.profile?.slug ?? '',
+      services: Array.isArray(value?.profile?.services) ? value.profile.services : [],
+    },
+    slots: Array.isArray(value?.slots) ? value.slots : [],
+  }
 }
 
 export function PublicBookingForm({ slug, initialDay, initial }: Props) {
+  const initialData = useMemo(() => normalizeAvailability(initial), [initial])
   const minDay = useMemo(() => new Date().toISOString().slice(0, 10), [])
   const [day, setDay] = useState(initialDay)
-  const [data, setData] = useState<AvailabilityResult>(initial)
-  const [service, setService] = useState(initial.profile.services[0] ?? '')
-  const [slotIso, setSlotIso] = useState(initial.slots[0] ?? '')
+  const [data, setData] = useState<AvailabilityResult>(initialData)
+  const [service, setService] = useState(initialData.profile.services[0] ?? '')
+  const [slotIso, setSlotIso] = useState(initialData.slots[0] ?? '')
   const [pending, startTransition] = useTransition()
   const [state, formAction, isSubmitting] = useActionState(createPublicBooking, {})
   const skipFirstFetch = useRef(true)
+
+  useEffect(() => {
+    setData(initialData)
+    setService(initialData.profile.services[0] ?? '')
+    setSlotIso(initialData.slots[0] ?? '')
+  }, [initialData])
 
   useEffect(() => {
     if (state.error) toast.error(state.error)
@@ -53,9 +72,10 @@ export function PublicBookingForm({ slug, initialDay, initial }: Props) {
         toast.error(res.error || 'Não foi possível carregar horários.')
         return
       }
-      setData(res.data)
-      setService(res.data.profile.services[0] ?? '')
-      setSlotIso(res.data.slots[0] ?? '')
+      const nextData = normalizeAvailability(res.data)
+      setData(nextData)
+      setService(nextData.profile.services[0] ?? '')
+      setSlotIso(nextData.slots[0] ?? '')
     })
   }, [slug, day, initialDay])
 

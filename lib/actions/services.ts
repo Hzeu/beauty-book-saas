@@ -3,6 +3,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
+const SERVICE_SELECT = '*'
+
 export type ServiceActionResult = {
   success?: boolean
   error?: string
@@ -128,7 +130,7 @@ export async function createService(formData: FormData): Promise<ServiceActionRe
     const { data, error } = await supabase
       .from('services')
       .insert(payload)
-      .select('id, professional_id, name, price, duration_minutes, category_id')
+      .select(SERVICE_SELECT)
       .single()
 
     if (error) {
@@ -163,11 +165,13 @@ export async function updateService(id: string, formData: FormData): Promise<Ser
     return { error: parsed.error }
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('services')
     .update(parsed.data)
     .eq('id', id)
     .eq('professional_id', professionalId)
+    .select(SERVICE_SELECT)
+    .single()
 
   if (error) {
     logSupabaseError('updateService update failed', error, { id, professionalId, ...parsed.data })
@@ -175,7 +179,7 @@ export async function updateService(id: string, formData: FormData): Promise<Ser
   }
 
   revalidatePath('/dashboard/servicos')
-  return { success: true }
+  return { success: true, data }
 }
 
 export async function deleteService(id: string): Promise<ServiceActionResult> {
@@ -209,11 +213,13 @@ export async function toggleServiceActive(id: string, isActive: boolean): Promis
     return { error: 'Profissional não encontrado.' }
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('services')
     .update({ is_active: isActive })
     .eq('id', id)
     .eq('professional_id', professionalId)
+    .select(SERVICE_SELECT)
+    .single()
 
   if (error) {
     logSupabaseError('toggleServiceActive update failed', error, { id, professionalId, isActive })
@@ -221,7 +227,7 @@ export async function toggleServiceActive(id: string, isActive: boolean): Promis
   }
 
   revalidatePath('/dashboard/servicos')
-  return { success: true }
+  return { success: true, data }
 }
 
 export async function createServiceCategory(formData: FormData): Promise<ServiceActionResult> {
