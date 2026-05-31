@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { normalizeRole } from '@/lib/auth/roles'
 import { AdminHeader } from '@/components/admin/admin-header'
 import { AdminSidebar } from '@/components/admin/admin-sidebar'
 
@@ -25,7 +26,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect('/blocked')
   }
 
-  if (profile?.role !== 'admin') {
+  if (normalizeRole(profile.role) !== 'admin') {
     redirect('/dashboard')
   }
 

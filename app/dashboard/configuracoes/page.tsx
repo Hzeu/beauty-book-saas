@@ -11,7 +11,7 @@ import { updateProfileSettings, type SettingsState } from '@/lib/actions/setting
 import { toast } from 'sonner'
 
 export default function ConfiguracoesPage() {
-  const { profile, refreshProfile } = useAuth()
+  const { profile, refreshProfile, isReady } = useAuth()
 
   const [state, formAction, pending] = useActionState(
     async (prev: SettingsState | undefined, fd: FormData) => updateProfileSettings(prev, fd),
@@ -30,26 +30,32 @@ export default function ConfiguracoesPage() {
     <>
       <DashboardHeader title="Configurações" description="Dados da sua conta" />
       <main className="p-6 max-w-lg">
-        <form action={formAction} className="space-y-4 rounded-lg border bg-card p-6">
-          <div className="space-y-2">
-            <Label htmlFor="full_name">Nome completo</Label>
-            <Input
-              id="full_name"
-              name="full_name"
-              defaultValue={profile?.full_name ?? ''}
-              placeholder="Seu nome"
-            />
+        {!isReady ? (
+          <div className="flex min-h-[40vh] items-center justify-center">
+            <Loader2 className="size-8 animate-spin text-muted-foreground" />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="phone">Telefone</Label>
-            <Input id="phone" name="phone" defaultValue={profile?.phone ?? ''} placeholder="WhatsApp" />
-          </div>
-          <p className="text-xs text-muted-foreground">Email da conta: {profile?.email}</p>
-          <Button type="submit" disabled={pending}>
-            {pending && <Loader2 className="mr-2 size-4 animate-spin" />}
-            Salvar alterações
-          </Button>
-        </form>
+        ) : (
+          <form action={formAction} className="space-y-4 rounded-lg border bg-card p-6">
+            <div className="space-y-2">
+              <Label htmlFor="full_name">Nome completo</Label>
+              <Input
+                id="full_name"
+                name="full_name"
+                defaultValue={profile?.full_name ?? ''}
+                placeholder="Seu nome"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Telefone</Label>
+              <Input id="phone" name="phone" defaultValue={profile?.phone ?? ''} placeholder="WhatsApp" />
+            </div>
+            <p className="text-xs text-muted-foreground">Email da conta: {profile?.email ?? '—'}</p>
+            <Button type="submit" disabled={pending}>
+              {pending && <Loader2 className="mr-2 size-4 animate-spin" />}
+              Salvar alterações
+            </Button>
+          </form>
+        )}
       </main>
     </>
   )

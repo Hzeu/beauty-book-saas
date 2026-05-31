@@ -16,6 +16,7 @@ export const RESERVED_PUBLIC_SLUGS = new Set([
   'favicon.ico',
   'login',
   'book',
+  'agendar',
 ])
 
 // Subscription Plans

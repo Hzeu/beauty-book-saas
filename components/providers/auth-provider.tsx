@@ -11,8 +11,9 @@ import {
   type ReactNode,
 } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { Profile, Subscription, SubscriptionPlan } from '@/lib/types/database'
-import type { User } from '@supabase/supabase-js'
+import { DEFAULT_ROLE, normalizeRole } from '@/lib/auth/roles'
+import type { Profile, Subscription, SubscriptionPlan, UserRole } from '@/lib/types/database'
+import type { Session, User } from '@supabase/supabase-js'
 
 type AuthProfile = Profile & {
   plan: SubscriptionPlan | null
@@ -23,10 +24,11 @@ interface AuthContextType {
   user: User | null
   profile: AuthProfile | null
   subscription: Subscription | null
-  role: Profile['role'] | null
+  role: UserRole
   plan: SubscriptionPlan | null
   isBlocked: boolean
   isLoading: boolean
+  isReady: boolean
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
 }
@@ -52,10 +54,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchProfile = useCallback(
     async (userId: string) => {
+      if (!userId) return
+
       const requestId = ++profileRequestRef.current
       activeUserIdRef.current = userId
-      setProfile(null)
-      setSubscription(null)
 
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
@@ -75,7 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      if (profileData.role === 'professional') {
+      const role = normalizeRole(profileData.role)
+
+      if (role === 'professional') {
         const { data: subscriptionData } = await supabase
           .from('subscriptions')
           .select('*')
@@ -89,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSubscription(subscriptionData ?? null)
         setProfile({
           ...profileData,
+          role,
           is_blocked: profileData.is_blocked === true,
           plan: subscriptionData?.plan ?? null,
         })
@@ -96,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSubscription(null)
         setProfile({
           ...profileData,
+          role,
           is_blocked: profileData.is_blocked === true,
           plan: null,
         })
@@ -104,99 +110,78 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [supabase],
   )
 
+  const syncSession = useCallback(
+    async (session: Session | null) => {
+      const nextUser = session?.user ?? null
+
+      if (!nextUser) {
+        clearAuthState()
+        return
+      }
+
+      setUser(nextUser)
+      await fetchProfile(nextUser.id)
+    },
+    [clearAuthState, fetchProfile],
+  )
+
   const refreshProfile = useCallback(async () => {
-    if (user) {
-      await fetchProfile(user.id)
-    }
+    if (!user?.id) return
+    await fetchProfile(user.id)
   }, [user, fetchProfile])
 
   const signOut = useCallback(async () => {
-    setIsLoading(true)
     clearAuthState()
-    const { error } = await supabase.auth.signOut({ scope: 'global' })
-    clearAuthState()
-    setIsLoading(false)
-    if (error) console.error('[auth] signOut failed', error)
+    await supabase.auth.signOut({ scope: 'global' })
     if (typeof window !== 'undefined') {
       window.location.replace('/auth/login')
     }
   }, [clearAuthState, supabase])
 
   useEffect(() => {
-    let cancelled = false
+    let mounted = true
+
+    const finish = () => {
+      if (mounted) setIsLoading(false)
+    }
+
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return
+      void syncSession(session).finally(finish)
+    })
 
     const {
       data: { subscription: authSub },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (cancelled) return
-
-      if (event === 'INITIAL_SESSION') {
-        const u = session?.user ?? null
-        clearAuthState()
-        setUser(u)
-        if (u) await fetchProfile(u.id)
-        setIsLoading(false)
-        return
-      }
-
-      if (event === 'TOKEN_REFRESHED' && session?.user) {
-        activeUserIdRef.current = session.user.id
-        setUser(session.user)
-        await fetchProfile(session.user.id)
-        setIsLoading(false)
-        return
-      }
-
-      if (event === 'SIGNED_IN' && session?.user) {
-        clearAuthState()
-        setUser(session.user)
-        await fetchProfile(session.user.id)
-        setIsLoading(false)
-        return
-      }
-
-      if (event === 'SIGNED_OUT') {
-        clearAuthState()
-        setIsLoading(false)
-        return
-      }
-
-      if (event === 'USER_UPDATED' && session?.user) {
-        activeUserIdRef.current = session.user.id
-        setUser(session.user)
-        await fetchProfile(session.user.id)
-        setIsLoading(false)
-      }
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return
+      void syncSession(session).finally(finish)
     })
 
     return () => {
-      cancelled = true
+      mounted = false
       authSub.unsubscribe()
     }
-  }, [supabase, fetchProfile, clearAuthState])
+  }, [supabase, syncSession])
 
-  useEffect(() => {
-    console.log('AUTH USER', user)
-    console.log('PROFILE ROLE', profile?.role)
-  }, [user, profile?.role])
+  const role: UserRole = profile?.role ?? DEFAULT_ROLE
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        profile,
-        subscription,
-        role: profile?.role ?? null,
-        plan: profile?.plan ?? subscription?.plan ?? null,
-        isBlocked: profile?.is_blocked === true,
-        isLoading,
-        signOut,
-        refreshProfile,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const contextValue = useMemo<AuthContextType>(
+    () => ({
+      user,
+      profile,
+      subscription,
+      role,
+      plan: profile?.plan ?? subscription?.plan ?? null,
+      isBlocked: profile?.is_blocked === true,
+      isLoading,
+      isReady: !isLoading,
+      signOut,
+      refreshProfile,
+    }),
+    [user, profile, subscription, role, isLoading, signOut, refreshProfile],
   )
+
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

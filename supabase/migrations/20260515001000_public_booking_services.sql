@@ -1,4 +1,4 @@
--- Public booking helpers expose only the minimum data needed by client booking pages.
+ Public booking helpers expose only the minimum data needed by client booking pages.
 
 create or replace function public.get_booking_services(p_id uuid)
 returns table (

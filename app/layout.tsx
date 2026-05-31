@@ -1,20 +1,20 @@
 import type { Metadata, Viewport } from 'next'
 import { cookies, headers } from 'next/headers'
 import { Geist, Geist_Mono } from 'next/font/google'
+
 import { Toaster } from 'sonner'
 import { ThemeProvider } from '@/components/providers/theme-provider'
 import { AuthProvider } from '@/components/providers/auth-provider'
 import { cn } from '@/lib/utils'
 import { parseThemePreference, resolveForServer } from '@/lib/theme/preference'
-import Providers from './providers'
 import './globals.css'
 
-const geist = Geist({
+const geist = Geist({ 
   subsets: ['latin'],
   variable: '--font-geist-sans',
 })
 
-const geistMono = Geist_Mono({
+const geistMono = Geist_Mono({ 
   subsets: ['latin'],
   variable: '--font-geist-mono',
 })
@@ -24,17 +24,16 @@ export const metadata: Metadata = {
     default: 'BeautyBook - Agendamento Online para Profissionais de Beleza',
     template: '%s | BeautyBook',
   },
-  description:
-    'Sistema completo de agendamento online para manicures, cabeleireiras, barbeiros, lash designers e profissionais de estetica. Gerencie sua agenda, clientes e pagamentos em um so lugar.',
+  description: 'Sistema completo de agendamento online para manicures, cabeleireiras, barbeiros, lash designers e profissionais de estética. Gerencie sua agenda, clientes e pagamentos em um só lugar.',
   keywords: [
     'agendamento online',
-    'salao de beleza',
+    'salão de beleza',
     'manicure',
     'cabeleireira',
     'barbeiro',
     'lash designer',
-    'estetica',
-    'gestao de salao',
+    'estética',
+    'gestão de salão',
     'agenda online',
     'profissionais de beleza',
   ],
@@ -115,30 +114,29 @@ export default async function RootLayout({
       style={{ colorScheme: resolved }}
     >
       <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}>
-        <Providers>
-          <ThemeProvider
-            attribute="class"
-            cookieTheme={themeCookie}
-            defaultTheme="light"
-            enableSystem
-            disableTransitionOnChange
-            serverPrefersDark={secCh === 'dark'}
-          >
-            <AuthProvider>
-              {children}
-              <Toaster
-                position="top-right"
-                toastOptions={{
-                  style: {
-                    background: 'var(--card)',
-                    color: 'var(--card-foreground)',
-                    border: '1px solid var(--border)',
-                  },
-                }}
-              />
-            </AuthProvider>
-          </ThemeProvider>
-        </Providers>
+        <ThemeProvider
+          attribute="class"
+          cookieTheme={themeCookie}
+          defaultTheme="light"
+          enableSystem
+          disableTransitionOnChange
+          serverPrefersDark={secCh === 'dark'}
+        >
+          <AuthProvider>
+            {children}
+            <Toaster 
+              position="top-right"
+              toastOptions={{
+                style: {
+                  background: 'var(--card)',
+                  color: 'var(--card-foreground)',
+                  border: '1px solid var(--border)',
+                },
+              }}
+            />
+          </AuthProvider>
+        </ThemeProvider>
+        
       </body>
     </html>
   )

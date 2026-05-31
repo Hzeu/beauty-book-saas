@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { normalizeRole } from '@/lib/auth/roles'
 import { DashboardSidebar } from '@/components/dashboard/sidebar'
 
 export default async function DashboardLayout({
@@ -8,9 +9,11 @@ export default async function DashboardLayout({
   children: React.ReactNode
 }) {
   const supabase = await createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
-  
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
   if (!user) {
     redirect('/auth/login')
   }
@@ -29,24 +32,24 @@ export default async function DashboardLayout({
     redirect('/blocked')
   }
 
-  if (profile.role === 'admin') {
+  const role = normalizeRole(profile.role)
+
+  if (role === 'admin') {
     redirect('/admin')
   }
 
-  if (profile.role !== 'professional') {
+  if (role !== 'professional') {
     redirect('/')
   }
 
-  if (profile?.role === 'professional' && !profile.category) {
+  if (!profile.category) {
     redirect('/onboarding')
   }
 
   return (
     <div className="min-h-screen bg-background">
       <DashboardSidebar />
-      <div className="pl-16 lg:pl-64 transition-all duration-300">
-        {children}
-      </div>
+      <div className="pl-16 lg:pl-64 transition-all duration-300">{children}</div>
     </div>
   )
 }

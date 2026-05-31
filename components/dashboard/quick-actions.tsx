@@ -5,6 +5,7 @@ import { Plus, Calendar, Users, Scissors, Share2, Copy, ExternalLink } from 'luc
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
+import { buildPublicBookingUrl } from '@/lib/utils/public-booking-url'
 
 interface DashboardQuickActionsProps {
   professionalId: string
@@ -18,9 +19,7 @@ export function DashboardQuickActions({
   professionalSlug,
   bookingBaseUrl,
 }: DashboardQuickActionsProps) {
-  const base = bookingBaseUrl.replace(/\/$/, '')
-  const bookingPath = professionalId ? `/book/${professionalId}` : professionalSlug ? `/${professionalSlug}` : ''
-  const bookingUrl = bookingPath ? `${base}${bookingPath}` : ''
+  const bookingUrl = buildPublicBookingUrl(bookingBaseUrl, professionalSlug, professionalId)
 
   const copyLink = () => {
     if (!bookingUrl) {

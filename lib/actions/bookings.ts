@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { buildHourlySlots, type WorkingHourRow } from '@/lib/booking/slots'
 import type { BookingStatus } from '@/lib/types/database'
@@ -114,13 +115,37 @@ export async function createPublicBooking(
     return { error: 'Serviço inválido para este profissional.' }
   }
 
-  const { error } = await supabase.from('bookings').insert({
+  const status = 'pending' satisfies BookingStatus
+
+  console.log('BOOKING INSERT', {
+    professional_id: prof?.id,
+    slug,
+    service,
+    clientName,
+    clientPhone,
+    slotIso,
+    status,
+  })
+
+  const publicSupabase = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    },
+  )
+
+  const { error } = await publicSupabase.from('bookings').insert({
     professional_id: prof.id,
     client_name: clientName,
     client_phone: clientPhone,
     service,
     date: slotIso,
-    status: 'pending',
+    status,
   })
 
   if (error) {

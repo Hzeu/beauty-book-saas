@@ -2,6 +2,11 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import {
+  destinationForRole,
+  isRedirectAllowedForRole,
+  normalizeRole,
+} from '@/lib/auth/roles'
 import type { UserRole, ProfessionalCategory } from '@/lib/types/database'
 import { generateSlug } from '@/lib/helpers'
 import { getSiteUrl, safeInternalPath } from '@/lib/utils/site-url'
@@ -10,20 +15,6 @@ export type AuthActionResult = {
   success?: boolean
   error?: string
   redirect?: string
-}
-
-function destinationForRole(role: UserRole | null | undefined) {
-  if (role === 'admin') return '/admin'
-  if (role === 'professional') return '/dashboard'
-  return '/'
-}
-
-function isRedirectAllowedForRole(path: string, role: UserRole | null | undefined) {
-  if (!path) return false
-  if (path.startsWith('/admin')) return role === 'admin'
-  if (path.startsWith('/dashboard')) return role === 'professional'
-  if (path.startsWith('/onboarding')) return role === 'professional'
-  return true
 }
 
 export async function signUp(
@@ -121,15 +112,17 @@ export async function signIn(
       redirect('/blocked')
     }
 
-    if (isRedirectAllowedForRole(redirectTo, profile.role)) {
+    const role = normalizeRole(profile.role)
+
+    if (isRedirectAllowedForRole(redirectTo, role)) {
       redirect(redirectTo)
     }
 
-    if (profile?.role === 'professional' && !profile.category) {
+    if (role === 'professional' && !profile.category) {
       redirect('/onboarding')
     }
 
-    redirect(destinationForRole(profile?.role))
+    redirect(destinationForRole(role))
   }
 
   redirect('/auth/login')

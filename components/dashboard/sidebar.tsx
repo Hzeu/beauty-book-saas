@@ -51,8 +51,8 @@ const secondaryNavigation = [
 export function DashboardSidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { profile, subscription, signOut } = useAuth()
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const { profile, subscription, signOut } = useAuth()
 
   const getInitials = (name: string | null) => {
     if (!name) return 'U'

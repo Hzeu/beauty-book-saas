@@ -1,21 +1,11 @@
 import { createServerClient } from '@supabase/ssr'
 import { type NextRequest, NextResponse } from 'next/server'
+import {
+  destinationForRole,
+  isRedirectAllowedForRole,
+  normalizeRole,
+} from '@/lib/auth/roles'
 import { safeInternalPath } from '@/lib/utils/site-url'
-import type { UserRole } from '@/lib/types/database'
-
-function destinationForRole(role: UserRole | null | undefined) {
-  if (role === 'admin') return '/admin'
-  if (role === 'professional') return '/dashboard'
-  return '/'
-}
-
-function isRedirectAllowedForRole(path: string, role: UserRole | null | undefined) {
-  if (!path) return false
-  if (path.startsWith('/admin')) return role === 'admin'
-  if (path.startsWith('/dashboard')) return role === 'professional'
-  if (path.startsWith('/onboarding')) return role === 'professional'
-  return true
-}
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl
@@ -77,16 +67,18 @@ export async function GET(request: NextRequest) {
     return response
   }
 
-  if (isRedirectAllowedForRole(next, profile.role)) {
+  const role = normalizeRole(profile.role)
+
+  if (isRedirectAllowedForRole(next, role)) {
     response.headers.set('Location', new URL(next, origin).toString())
     return response
   }
 
-  if (profile.role === 'professional' && !profile.category) {
+  if (role === 'professional' && !profile.category) {
     response.headers.set('Location', new URL('/onboarding', origin).toString())
     return response
   }
 
-  response.headers.set('Location', new URL(destinationForRole(profile.role), origin).toString())
+  response.headers.set('Location', new URL(destinationForRole(role), origin).toString())
   return response
 }
