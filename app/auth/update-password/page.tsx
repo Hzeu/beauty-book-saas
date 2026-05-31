@@ -1,4 +1,5 @@
-import { use } from "react"
+'use client'
+
 import { updatePassword } from '@/lib/actions/auth'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -8,8 +9,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-
-
 
 export default function UpdatePasswordPage() {
   const router = useRouter()
