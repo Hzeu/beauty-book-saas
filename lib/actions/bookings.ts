@@ -117,15 +117,17 @@ export async function createPublicBooking(
 
   const status = 'pending' satisfies BookingStatus
 
-  console.log('BOOKING INSERT', {
-    professional_id: prof?.id,
-    slug,
-    service,
-    clientName,
-    clientPhone,
-    slotIso,
-    status,
-  })
+  // SECURITY FIX: Log apenas informações não sensíveis
+  // Removido clientName, clientPhone (PII - informações pessoalmente identificáveis)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[BOOKING] Insert initiated', {
+      professionalId: prof?.id,
+      slug,
+      service,
+      slotIso,
+      status,
+    })
+  }
 
   const publicSupabase = createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -149,6 +151,10 @@ export async function createPublicBooking(
   })
 
   if (error) {
+    // SECURITY FIX: Trata erro 23505 (UNIQUE constraint violation) para double booking
+    if (error.code === '23505' || error.message?.includes('duplicate')) {
+      return { error: 'Este horário não está mais disponível. Selecione outro.' }
+    }
     return { error: error.message || 'Não foi possível agendar.' }
   }
 

@@ -7,7 +7,7 @@ import {
   isRedirectAllowedForRole,
   normalizeRole,
 } from '@/lib/auth/roles'
-import type { UserRole, ProfessionalCategory } from '@/lib/types/database'
+import type { ProfessionalCategory } from '@/lib/types/database'
 import { generateSlug } from '@/lib/helpers'
 import { getSiteUrl, safeInternalPath } from '@/lib/utils/site-url'
 
@@ -26,7 +26,6 @@ export async function signUp(
   const email = formData.get('email') as string
   const password = formData.get('password') as string
   const fullName = formData.get('fullName') as string
-  const role = (formData.get('role') as UserRole) || 'professional'
 
   if (!email || !password || !fullName) {
     return { error: 'Por favor, preencha todos os campos.' }
@@ -38,13 +37,16 @@ export async function signUp(
 
   const siteUrl = await getSiteUrl()
 
+  // SECURITY FIX: Role sempre 'professional' para signup público
+  // O role é definido no trigger PostgreSQL (handle_new_user)
+  // Nunca enviar role do frontend
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
         full_name: fullName,
-        role: role,
+        // role removido - sempre usa 'professional' do servidor
       },
       emailRedirectTo: `${siteUrl}/auth/callback?next=/onboarding`,
     },
